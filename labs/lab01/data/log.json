@@ -20,5 +20,49 @@
             "wrongpassword"
         ],
         "kwargs": {}
+    },
+    {
+        "event": "login",
+        "user": "alice",
+        "result": "success",
+        "timestamp": "2026-09-10 10:42:41.504929",
+        "args": [
+            "alice",
+            "Alic3P@ssw0rd"
+        ],
+        "kwargs": {}
+    },
+    {
+        "event": "login",
+        "user": "alice",
+        "result": "failure",
+        "timestamp": "2026-09-10 10:42:41.505689",
+        "args": [
+            "alice",
+            "wrongpassword"
+        ],
+        "kwargs": {}
+    },
+    {
+        "event": "login",
+        "user": "alice",
+        "result": "success",
+        "timestamp": "2026-09-10 10:44:01.530868",
+        "args": [
+            "alice",
+            "Alic3P@ssw0rd"
+        ],
+        "kwargs": {}
+    },
+    {
+        "event": "login",
+        "user": "alice",
+        "result": "failure",
+        "timestamp": "2026-09-10 10:44:01.532081",
+        "args": [
+            "alice",
+            "wrongpassword"
+        ],
+        "kwargs": {}
     }
 ]

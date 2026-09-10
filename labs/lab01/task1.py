@@ -1,20 +1,31 @@
+import os
 import random
 import sys
-import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-from shared.student import STUDENT_NAME, GROUP_NAME, VARIANT_NUMBER
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from shared.student import GROUP_NAME, STUDENT_NAME, VARIANT_NUMBER
 
+passwords = [
+    "SIEM@An4lysis",
+    "easy123",
+    "S0C@Analyst",
+    "observer",
+    "Threat@Hunt1ng",
+    "viewer",
+    "Incid3nt@Handle",
+    "monitor",
+    "Log@An4lysis",
+    "watcher",
+]
 
-passwords = ["SIEM@An4lysis", "easy123", "S0C@Analyst", "observer",
-             "Threat@Hunt1ng", "viewer", "Incid3nt@Handle", "monitor",
-             "Log@An4lysis", "watcher"]
+criteria = {
+    "min_length": 9,
+    "require_digits": True,
+    "require_upper": True,
+    "require_special": True,
+}
 
-criteria = {"min_length": 9, "require_digits": True,
-            "require_upper": True, "require_special": True}
-
-forbidden_passwords = {"easy123", "observer", "viewer",
-                        "monitor", "watcher", "admin"}
+forbidden_passwords = {"easy123", "observer", "viewer", "monitor", "watcher", "admin"}
 
 SPECIAL_CHARS = "!@#$%^&*()_+-=[]{}|;:,.<>?/~`"
 
@@ -36,8 +47,12 @@ def has_special(password):
 
 
 def count_criteria_met(password):
-    checks = [has_digit(password), has_upper(password),
-              has_special(password), has_lower(password)]
+    checks = [
+        has_digit(password),
+        has_upper(password),
+        has_special(password),
+        has_lower(password),
+    ]
     return sum(checks)
 
 
@@ -49,7 +64,9 @@ def evaluate_password(password, all_passwords):
     if met <= 1:
         return "Слабкий"
 
-    all_required_met = has_digit(password) and has_upper(password) and has_special(password)
+    all_required_met = (
+        has_digit(password) and has_upper(password) and has_special(password)
+    )
     if not all_required_met:
         return "Середній"
 

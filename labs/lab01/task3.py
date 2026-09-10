@@ -1,13 +1,13 @@
+import csv
 import hashlib
+import json
 import os
 import sys
-import csv
-import json
 from datetime import datetime
 
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from shared.student import VARIANT_NUMBER
+
 STUDENT_SALT = str(VARIANT_NUMBER).zfill(5)
 
 users_to_register = (
@@ -23,22 +23,24 @@ users_to_register = (
     ("judy", "Judy#Pass2024!"),
 )
 
+
 class ValidationError(Exception):
     pass
+
 
 def generate_hash(password, salt="00000"):
     if not password or not salt:
         raise ValueError("Password and salt cannot be empty")
     if len(password) < 8:
         raise ValidationError("Password must be at least 8 characters long")
-    password_salt = password + salt 
+    password_salt = password + salt
     return hashlib.md5(password_salt.encode()).hexdigest()
-
 
 
 def create_user(username, password):
     hash_value = generate_hash(password, STUDENT_SALT)
     return (username, hash_value)
+
 
 def create_users(users_list):
     os.makedirs("labs/lab01/data", exist_ok=True)
@@ -47,8 +49,6 @@ def create_users(users_list):
         for username, password in users_list:
             hashed_user = create_user(username, password)
             writer.writerow(hashed_user)
-
-
 
 
 def read_users_db():
@@ -61,12 +61,8 @@ def read_users_db():
 
 
 def print_users_db(users_db):
-        for username, hash_value in users_db:
-            print(f"Username: {username}, Hash: {hash_value}")
-
-
-
-
+    for username, hash_value in users_db:
+        print(f"Username: {username}, Hash: {hash_value}")
 
 
 def log_event(func):
@@ -104,7 +100,8 @@ def log_event(func):
         with open(log_file, "w") as file:
             json.dump(logs, file, indent=4)
 
-        return result   
+        return result
+
     return wrapper
 
 
@@ -118,6 +115,7 @@ def login(username, password):
         if db_username == username and db_hash == input_hash:
             return True
     return False
+
 
 def main():
     try:
@@ -133,7 +131,7 @@ def main():
         print("Помилка: файл не знайдено")
     except PermissionError:
         print("Помилка: немає прав доступу до файлу")
-    except IOError:
+    except OSError:
         print("Помилка: проблема при роботі з файлом")
     except ValidationError as e:
         print(f"Помилка валідації: {e}")
