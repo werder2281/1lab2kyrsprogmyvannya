@@ -1,0 +1,24 @@
+[
+    {
+        "event": "login",
+        "user": "alice",
+        "result": "success",
+        "timestamp": "2026-09-10 10:38:42.132327",
+        "args": [
+            "alice",
+            "Alic3P@ssw0rd"
+        ],
+        "kwargs": {}
+    },
+    {
+        "event": "login",
+        "user": "alice",
+        "result": "failure",
+        "timestamp": "2026-09-10 10:38:42.133003",
+        "args": [
+            "alice",
+            "wrongpassword"
+        ],
+        "kwargs": {}
+    }
+]
