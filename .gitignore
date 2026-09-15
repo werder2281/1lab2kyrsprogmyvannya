@@ -2,3 +2,5 @@
 __pycache__/
 *.pyc
 .vscode/
+labs/lab01/data/
+.ruff_cache/
