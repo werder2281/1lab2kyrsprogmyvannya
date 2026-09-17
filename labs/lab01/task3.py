@@ -44,19 +44,36 @@ def create_user(username, password):
 
 def create_users(users_list):
     os.makedirs("labs/lab01/data", exist_ok=True)
-    with open("labs/lab01/data/users.csv", "w", newline="") as file:
-        writer = csv.writer(file)
-        for username, password in users_list:
-            hashed_user = create_user(username, password)
-            writer.writerow(hashed_user)
+    try:
+        with open("labs/lab01/data/users.csv", "w", newline="") as file:
+            writer = csv.writer(file)
+            for username, password in users_list:
+                try:
+                    hashed_user = create_user(username, password)
+                    writer.writerow(hashed_user)
+                except (ValidationError, ValueError) as e:
+                    print(f"Пропущено користувача {username}: {e}")
+    except FileNotFoundError:
+        print("Помилка: шлях до файлу не знайдено")
+    except PermissionError:
+        print("Помилка: немає прав на запис файлу")
+    except OSError as e:
+        print(f"Помилка при роботі з файлом: {e}")
 
 
 def read_users_db():
     users_db = []
-    with open("labs/lab01/data/users.csv", "r") as file:
-        reader = csv.reader(file)
-        for row in reader:
-            users_db.append(row)
+    try:
+        with open("labs/lab01/data/users.csv", "r") as file:
+            reader = csv.reader(file)
+            for row in reader:
+                users_db.append(row)
+    except FileNotFoundError:
+        print("Помилка: файл users.csv не знайдено")
+    except PermissionError:
+        print("Помилка: немає прав на читання файлу")
+    except OSError as e:
+        print(f"Помилка при роботі з файлом: {e}")
     return users_db
 
 
@@ -67,15 +84,15 @@ def print_users_db(users_db):
 
 def log_event(func):
     def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)  # виклик оригінальної login()
+        username = args[0] if args else "unknown"
 
-        username = args[0]  # ТИ ВЖЕ ЗНАЄШ ЦЕ
-
-        # ТВІЙ КОД: якщо result True -> status = "success", інакше "failure"
-        if result == True:
-            status = "success"
-        else:
+        try:
+            result = func(*args, **kwargs)
+            status = "success" if result else "failure"
+        except (ValidationError, ValueError) as e:
+            result = False
             status = "failure"
+            print(f"Помилка входу: {e}")
 
         log_entry = {
             "event": "login",
@@ -89,16 +106,23 @@ def log_event(func):
         os.makedirs("labs/lab01/data", exist_ok=True)
         log_file = "labs/lab01/data/log.json"
 
-        if os.path.exists(log_file):
-            with open(log_file, "r") as file:
-                logs = json.load(file)
-        else:
-            logs = []
+        try:
+            if os.path.exists(log_file):
+                with open(log_file, "r") as file:
+                    logs = json.load(file)
+            else:
+                logs = []
 
-        logs.append(log_entry)
+            logs.append(log_entry)
 
-        with open(log_file, "w") as file:
-            json.dump(logs, file, indent=4)
+            with open(log_file, "w") as file:
+                json.dump(logs, file, indent=4)
+        except FileNotFoundError:
+            print("Помилка: файл логів не знайдено")
+        except PermissionError:
+            print("Помилка: немає прав на запис логу")
+        except OSError as e:
+            print(f"Помилка при роботі з файлом логу: {e}")
 
         return result
 
@@ -118,25 +142,13 @@ def login(username, password):
 
 
 def main():
-    try:
-        create_users(users_to_register)
-        users_db = read_users_db()
-        print_users_db(users_db)
+    create_users(users_to_register)
+    users_db = read_users_db()
+    print_users_db(users_db)
 
-        print(login("alice", "Alic3P@ssw0rd"))
-        print(login("alice", "wrongpassword"))
-        print(login("alice", ""))
-
-    except FileNotFoundError:
-        print("Помилка: файл не знайдено")
-    except PermissionError:
-        print("Помилка: немає прав доступу до файлу")
-    except OSError:
-        print("Помилка: проблема при роботі з файлом")
-    except ValidationError as e:
-        print(f"Помилка валідації: {e}")
-    except ValueError as e:
-        print(f"Помилка значення: {e}")
+    print(login("alice", "Alic3P@ssw0rd"))
+    print(login("alice", "wrongpassword"))
+    print(login("alice", ""))
 
 
 if __name__ == "__main__":
