@@ -4,3 +4,6 @@ __pycache__/
 .vscode/
 labs/lab01/data/
 .ruff_cache/
+.venv/
+__pycache__/
+.ruff_cache/

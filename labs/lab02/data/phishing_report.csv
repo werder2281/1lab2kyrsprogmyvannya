@@ -1,0 +1,7 @@
+email_id,subject,from,return_path,reply_to,risk_score,status,hops,findings
+#101,Updated holiday policy,HR Department <hr@example.com>,<hr@example.com>,hr@example.com,0,LOW RISK,2,
+#102,URGENT: Verify your account immediately,Security Team <security@example.com>,<bounce@mailer.example.com>,support@evil-example.invalid,65,MEDIUM RISK,3,"From: 'Security Team <security@example.com>' vs Return-Path: '<bounce@mailer.example.com>' | Reply-To Mismatch: 'support@evil-example.invalid' | Stopwords Found: ['URGENT', 'VERIFY YOUR ACCOUNT']"
+#103,Invoice for September,Finance <finance@example.com>,<finance@example.com>,finance@example.com,0,LOW RISK,1,
+#104,Password expired - reset now,IT Helpdesk <helpdesk@example.com>,<notifications@updates.example.invalid>,password-reset@updates.example.invalid,85,HIGH RISK (CRITICAL PHISHING SUSPECT),4,"From: 'IT Helpdesk <helpdesk@example.com>' vs Return-Path: '<notifications@updates.example.invalid>' | Reply-To Mismatch: 'password-reset@updates.example.invalid' | Stopwords Found: ['PASSWORD EXPIRED', 'RESET NOW'] | Hop Count: 4 intermediate relays (Abnormal)"
+#105,Meeting agenda for Monday,CEO Office <ceo@example.com>,<ceo@example.com>,ceo@example.com,0,LOW RISK,1,
+#106,CONFIDENTIAL: payment required today,Payroll <payroll@example.com>,<payroll@billing-example.invalid>,payroll@billing-example.invalid,65,MEDIUM RISK,1,"From: 'Payroll <payroll@example.com>' vs Return-Path: '<payroll@billing-example.invalid>' | Reply-To Mismatch: 'payroll@billing-example.invalid' | Stopwords Found: ['PAYMENT REQUIRED', 'CONFIDENTIAL']"
