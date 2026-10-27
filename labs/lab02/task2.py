@@ -24,20 +24,32 @@ THRESHOLD_MEDIUM = 40
 
 
 def load_suspicious_keywords(keywords_file: Path) -> list[str]:
-    """Читає словник стоп-слів (по одному в рядку) у нижньому регістрі."""
-    if not keywords_file.exists():
+    
+    try:
+        with open(keywords_file, "r", encoding="utf-8") as f:
+            keywords = [line.strip().lower() for line in f if line.strip()]
+    except FileNotFoundError:
         logger.warning(
             f"Keywords file not found: {keywords_file}. Proceeding without keywords."
         )
         return []
-    with open(keywords_file, "r", encoding="utf-8") as f:
-        keywords = [line.strip().lower() for line in f if line.strip()]
+    except UnicodeDecodeError as e:
+        logger.warning(
+            f"Keywords file has invalid encoding ({e}). Proceeding without keywords."
+        )
+        return []
+    except OSError as e:  
+        logger.warning(
+            f"Cannot read keywords file {keywords_file}: {e}. "
+            "Proceeding without keywords."
+        )
+        return []
     logger.debug(f"Loaded {len(keywords)} suspicious keywords")
     return keywords
 
 
 def extract_domain(email_str: str) -> str:
-    """Повертає домен із адреси (From: Name <user@domain>) у нижньому регістрі."""
+    
     match = DOMAIN_PATTERN.search(email_str)
     return match.group(1).lower().rstrip(".") if match else ""
 
@@ -56,7 +68,7 @@ def _make_record(
 
 
 def _record_from_text(idx: int, raw_headers: str) -> dict | None:
-    """Розбирає один блок текстових заголовків (враховує багаторядкові значення)."""
+    
     msg = HeaderParser().parsestr(raw_headers.strip(), headersonly=True)
     if not (msg.get("From") or msg.get("Subject")):
         return None
@@ -71,7 +83,7 @@ def _record_from_text(idx: int, raw_headers: str) -> dict | None:
 
 
 def _record_from_mapping(idx: int, item: dict) -> dict | None:
-    """Створює запис зі словника JSON (ключі нечутливі до регістру та _/-)."""
+    
     flat = dict(item)
     if isinstance(item.get("headers"), dict):
         flat.update(item["headers"])
@@ -135,11 +147,7 @@ def _parse_text(content: str) -> list[dict]:
 
 
 def parse_email_headers(log_file: Path) -> list[dict]:
-    """Зчитує дамп заголовків (JSON або текст) і повертає список листів."""
-    if not log_file.exists():
-        logger.error(f"Mail log file not found: {log_file}")
-        return []
-
+   
     content = log_file.read_text(encoding="utf-8")
     emails: list[dict] = []
     if log_file.suffix.lower() == ".json" or content.lstrip().startswith(("[", "{")):
@@ -156,7 +164,7 @@ def parse_email_headers(log_file: Path) -> list[dict]:
 
 
 def analyze_emails(emails: list[dict], keywords: list[str]) -> list[dict]:
-    """Обчислює оцінку підозрілості (0-100) та статус кожного листа."""
+    
     results = []
 
     for email in emails:
@@ -289,8 +297,14 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         emails = parse_email_headers(args.mail_log)
-    except (OSError, UnicodeDecodeError) as e:
-        logger.error(f"Cannot read mail log: {e}")
+    except FileNotFoundError:
+        logger.error(f"Mail log file not found: {args.mail_log}")
+        return 1
+    except UnicodeDecodeError as e:
+        logger.error(f"Mail log has invalid encoding (expected UTF-8): {e}")
+        return 1
+    except OSError as e:
+        logger.error(f"Cannot read mail log {args.mail_log}: {e}")
         return 1
 
     if not emails:

@@ -100,3 +100,8 @@ python -m labs.lab02.task2 --mail-log labs/lab02/data/mail_headers.log
 ruff check labs/lab02
 ruff format --check labs/lab02
 ```
+
+
+python -m labs.lab02.main demo
+
+python -m labs.lab02.main analyze --mail-log labs/lab02/data/mail_headers.log --suspicious-keywords labs/lab02/data/suspicious_keywords.txt --out-csv labs/lab02/data/phishing_report.csv
