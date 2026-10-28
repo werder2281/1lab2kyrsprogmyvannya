@@ -7,3 +7,7 @@ labs/lab01/data/
 .venv/
 __pycache__/
 .ruff_cache/
+labs/lab03/data/*.sqlite3
+labs/lab03/data/*.sqlite3-*
+labs/lab03/data/*.db
+labs/lab03/data/*.db-*

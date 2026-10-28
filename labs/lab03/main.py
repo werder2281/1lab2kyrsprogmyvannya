@@ -1,166 +1,82 @@
-from typing import List
-from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, Field
+"""FastAPI-застосунок: облік вимірювань заповнення сховищ (варіант 12)."""
 
-from labs.lab03 import repository
+import logging
+import sqlite3
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from http import HTTPStatus
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from labs.lab03 import config, repository
+from labs.lab03.database import initialize_database
+from labs.lab03.routers import categories, records
+from shared import student
+
+logger = logging.getLogger(__name__)
+
+DESCRIPTION = (
+    f"{config.DOMAIN}. Категорії: тип сховища (logs, backups, archive). "
+    f"Поле value — {config.UNIT_DESCRIPTION} (одиниця: {config.UNIT}, "
+    f"від {config.VALUE_MIN:g} до {config.VALUE_MAX:g}). "
+    f"Поріг: {config.THRESHOLD:g}%."
+)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Під час запуску створити відсутні таблиці, не чіпаючи дані."""
+    initialize_database()
+    yield
+
 
 app = FastAPI(
-    title="Lab 03 REST API",
-    description="API для управління категоріями та записами (SQLite + FastAPI)",
+    title="Lab 03: облік використання сховищ",
+    description=DESCRIPTION,
+    lifespan=lifespan,
 )
+app.include_router(categories.router)
+app.include_router(records.router)
 
 
-# ==========================================
-# Pydantic Моделі (Schemas)
-# ==========================================
-class CategoryCreate(BaseModel):
-  name: str = Field(..., example="logs")
-
-
-class CategoryResponse(BaseModel):
-  id: int
-  name: str
-
-
-class RecordCreate(BaseModel):
-  code: str = Field(..., example="V12-01")
-  title: str = Field(..., example="Вимірювання сховища 01")
-  category_id: int = Field(..., example=1)
-  value: float = Field(..., example=90.0)
-  status: str = Field(..., example="new")
-
-
-class RecordResponse(BaseModel):
-  id: int
-  code: str
-  title: str
-  category_id: int
-  category_name: str
-  value: float
-  status: str
-
-
-# ==========================================
-# Endpoints: Categories
-# ==========================================
-@app.get(
-    "/categories",
-    response_model=List[CategoryResponse],
-    summary="Отримати всі категорії",
-)
-def read_categories():
-  return repository.get_all_categories()
-
-
-@app.get(
-    "/categories/{category_id}",
-    response_model=CategoryResponse,
-    summary="Отримати категорію за ID",
-)
-def read_category(category_id: int):
-  category = repository.get_category_by_id(category_id)
-  if not category:
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND, detail="Категорію не знайдено"
+@app.exception_handler(repository.NotFoundError)
+async def not_found_handler(
+    _: Request, error: repository.NotFoundError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=HTTPStatus.NOT_FOUND, content={"detail": error.message}
     )
-  return category
 
 
-@app.post(
-    "/categories",
-    response_model=CategoryResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Створити нову категорію",
-)
-def create_category(category: CategoryCreate):
-  return repository.create_category(category.name)
-
-
-@app.delete(
-    "/categories/{category_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Видалити категорію за ID",
-)
-def delete_category(category_id: int):
-  try:
-    success = repository.delete_category(category_id)
-    if not success:
-      raise HTTPException(
-          status_code=status.HTTP_404_NOT_FOUND, detail="Категорію не знайдено"
-      )
-  except ValueError as e:
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-
-# ==========================================
-# Endpoints: Records
-# ==========================================
-@app.get(
-    "/records", response_model=List[RecordResponse], summary="Отримати всі записи"
-)
-def read_records():
-  return repository.get_all_records()
-
-
-@app.get(
-    "/records/{record_id}",
-    response_model=RecordResponse,
-    summary="Отримати запис за ID",
-)
-def read_record(record_id: int):
-  record = repository.get_record_by_id(record_id)
-  if not record:
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND, detail="Запис не знайдено"
+@app.exception_handler(repository.ConflictError)
+async def conflict_handler(_: Request, error: repository.ConflictError) -> JSONResponse:
+    return JSONResponse(
+        status_code=HTTPStatus.CONFLICT, content={"detail": error.message}
     )
-  return record
 
 
-@app.post(
-    "/records",
-    response_model=RecordResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Створити новий запис",
-)
-def create_record(record: RecordCreate):
-  return repository.create_record(
-      code=record.code,
-      title=record.title,
-      category_id=record.category_id,
-      value=record.value,
-      status=record.status,
-  )
-
-
-@app.put(
-    "/records/{record_id}",
-    response_model=RecordResponse,
-    summary="Оновити запис за ID",
-)
-def update_record(record_id: int, record: RecordCreate):
-  updated_record = repository.update_record(
-      record_id=record_id,
-      code=record.code,
-      title=record.title,
-      category_id=record.category_id,
-      value=record.value,
-      status=record.status,
-  )
-  if not updated_record:
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND, detail="Запис не знайдено"
+@app.exception_handler(sqlite3.Error)
+async def database_error_handler(_: Request, error: sqlite3.Error) -> JSONResponse:
+    """Технічні деталі лише в журнал, клієнту — загальне повідомлення."""
+    logger.error("Помилка бази даних", exc_info=error)
+    return JSONResponse(
+        status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+        content={"detail": "Внутрішня помилка сервера"},
     )
-  return updated_record
 
 
-@app.delete(
-    "/records/{record_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Видалити запис за ID",
-)
-def delete_record(record_id: int):
-  success = repository.delete_record(record_id)
-  if not success:
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND, detail="Запис не знайдено"
-    )
+@app.get("/ping", summary="Перевірка доступності", operation_id="ping")
+def ping() -> dict[str, str]:
+    """Повертає {"status": "ok"}."""
+    return {"status": "ok"}
+
+
+@app.get("/student", summary="Дані студента", operation_id="get_student")
+def get_student() -> dict[str, str | int]:
+    """ПІБ, група та номер варіанта з shared/student.py."""
+    return {
+        "student_name": student.STUDENT_NAME,
+        "group_name": student.GROUP_NAME,
+        "variant_number": student.VARIANT_NUMBER,
+    }

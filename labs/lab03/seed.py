@@ -1,60 +1,91 @@
+"""Початкове заповнення бази даними з data/seed.json."""
+
 import json
-from pathlib import Path
 import sqlite3
+import sys
+from contextlib import closing
+from pathlib import Path
 
-from labs.lab03.database import get_connection
+from pydantic import BaseModel, ConfigDict, Field
 
-SEED_JSON_PATH = Path(__file__).resolve().parent / "data" / "seed.json"
+from labs.lab03.database import get_connection, initialize_database
+from labs.lab03.schemas import RecordCreate
 
-def seed_database():
-    if not SEED_JSON_PATH.exists():
-        print(f"Error: Seed file '{SEED_JSON_PATH}' does not exist.")
-        return
-
-    with open(SEED_JSON_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
-        categories = data.get("categories", [])
-        records = data.get("records", [])
+SEED_PATH = Path(__file__).resolve().parent / "data" / "seed.json"
 
 
-    connection = get_connection()
+class SeedCategory(BaseModel):
+    """Категорія з JSON (id задається в файлі)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    id: int = Field(gt=0)
+    name: str = Field(min_length=2, max_length=40)
+
+
+class SeedData(BaseModel):
+    """Весь файл seed.json."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    categories: list[SeedCategory]
+    records: list[RecordCreate]
+
+
+def load_seed(path: Path = SEED_PATH) -> SeedData:
+    """Прочитати JSON і перевірити його ще до запису в базу."""
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    seed = SeedData.model_validate(raw)
+    known_ids = {category.id for category in seed.categories}
+    for record in seed.records:
+        if record.category_id not in known_ids:
+            raise ValueError(
+                f"Запис {record.code}: категорії {record.category_id} немає в JSON"
+            )
+    return seed
+
+
+def is_database_empty(connection: sqlite3.Connection) -> bool:
+    """База порожня, якщо в обох таблицях немає рядків."""
+    categories = connection.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
+    records = connection.execute("SELECT COUNT(*) FROM records").fetchone()[0]
+    return categories == 0 and records == 0
+
+
+def seed_database() -> int:
+    """Заповнити порожню базу. Повертає код завершення (0 — успіх)."""
     try:
-        with connection:
-            cursor = connection.cursor()
-            cursor.execute("SELECT COUNT(*) FROM categories")
-            cat_count = cursor.fetchone()[0]
+        seed = load_seed()
+    except (OSError, ValueError) as error:
+        print(f"Початкові дані некоректні, базу не змінено: {error}")
+        return 1
 
-
-            if cat_count > 0:
-                print("Database already seeded. Skipping seeding process.")
-                return
-
-            for cat in categories:
-                cursor.execute(
-                    "INSERT INTO categories (id, name) VALUES (?, ?)", (cat["id"] , cat["name"])
+    initialize_database()
+    with closing(get_connection()) as connection:
+        if not is_database_empty(connection):
+            print("База вже містить дані: заповнення пропущено, дублікатів немає.")
+            return 0
+        try:
+            with connection:
+                connection.executemany(
+                    "INSERT INTO categories (id, name) VALUES (?, ?)",
+                    [(c.id, c.name) for c in seed.categories],
                 )
-
-            for rec in records:
-                cursor.execute(
-                    "INSERT INTO records (code , title , category_id , value , status) VALUES (? , ? , ? , ? , ?)" ,
-                    (
-                        rec ["code"],
-                        rec ["title"],
-                        rec["category_id"],
-                        rec["value"],
-                        rec["status"],
-                    )
+                connection.executemany(
+                    "INSERT INTO records (code, title, category_id, value, status)"
+                    " VALUES (?, ?, ?, ?, ?)",
+                    [
+                        (r.code, r.title, r.category_id, r.value, r.status)
+                        for r in seed.records
+                    ],
                 )
-            print("Database seeded successfully.")
+        except sqlite3.Error as error:
+            print(f"Помилка запису, усі зміни скасовано: {error}")
+            return 1
 
+    print(f"Додано категорій: {len(seed.categories)}, записів: {len(seed.records)}.")
+    return 0
 
-    except sqlite3.Error as e:
-        print(f"Error during seeding(changes not committed): {e}")
-    finally:
-        connection.close() 
 
 if __name__ == "__main__":
-    seed_database()
-
-
-
+    sys.exit(seed_database())
